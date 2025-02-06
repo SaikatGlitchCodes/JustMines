@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import engine from '../assests/engine.png';
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline';
 
@@ -40,9 +40,10 @@ export default function Engine() {
         setTimeout(() => setCopied(false), 2000);
     };
     return (
-        <div className='absolute animate-pulse top-6 right-6'>
+        <div className='animate-pulse'>
             <img
                 src={engine}
+                alt="Engine icon"
                 className='w-10 h-10'
                 onClick={() => setOpen(true)}
             />

@@ -24,7 +24,9 @@ module.exports = {
       },
       animation: {
         'reveal': 'reveal 1s ease-in-out infinite',
-        'shake': 'shake 1s ease-in-out'
+        'shake': 'shake 1s ease-in-out',
+        pulse: 'pulse 1s ease-in-out infinite',
+        bounce: 'bounce 0.5s ease-in-out',
       }
     },
   },
