@@ -1,6 +1,7 @@
 import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 const GameContext = createContext();
 
@@ -15,6 +16,7 @@ export function GameProvider({ children }) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [gameStatus, setGameStatus] = useState('playing');
   const [currentMultiplier, setCurrentMultiplier] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -40,12 +42,14 @@ export function GameProvider({ children }) {
         }
       } catch (error) {
         console.error("Error fetching user:", error);
+        toast.error("Failed to fetch user data");
       }
     })()
   }, [isSignedIn, getToken])
 
   const addFunds = async (amount) => {
     console.log('Depositing amount:', amount);
+    setLoading(true);
     try {
       const token = await getToken();
       const response = await axios.post('http://192.168.1.14:2000/wallet/deposit',
@@ -58,13 +62,18 @@ export function GameProvider({ children }) {
         });
       setBalance(Number(response.data.data.balance));
       setOpenWalletModel(false);
+      toast.success("Funds added successfully");
     } catch (error) {
       console.error("Error adding funds:", error.response.data.error);
+      toast.error("Failed to add funds");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCashout = async () => {
     console.log('Cashout');
+    setLoading(true);
     try {
       const token = await getToken();
       const response = await axios.post('http://192.168.1.14:2000/game/cashout',
@@ -77,14 +86,26 @@ export function GameProvider({ children }) {
         });
       setBalance(Number(response.data?.data?.balance));
       setIsActiveGame(false);
+      toast.success("Cashout successful");
     } catch (error) {
-      console.error("Error adding funds:", error?.response?.data?.error);
+      console.error("Error during cashout:", error?.response?.data?.error);
+      toast.error("Failed to cashout");
+    } finally {
+      setLoading(false);
     }
     setBetAmount(0);
   };
 
   const placeBet = async (betAmount, bombCount) => {
     console.log('Placing bet:', betAmount, bombCount);
+    setLoading(true);
+    
+    // Reset game state before placing new bet
+    setRevealedCells([]);
+    setBombPositions([]);
+    setGameStatus('playing');
+    setCurrentMultiplier(1);
+    
     try {
       const token = await getToken();
       const response = await axios.post('http://192.168.1.14:2000/game/start',
@@ -98,14 +119,21 @@ export function GameProvider({ children }) {
             "Content-Type": "application/json"
           }
         });
-      console.log('🍄 response placeBet:', response.data);
+      
+      // Update game state with fresh data
       setBalance(Number(response.data.data.balance));
       setIsActiveGame(true);
+      setBetAmount(betAmount);
+      toast.success("Bet placed successfully");
+      
+      return true;
     } catch (error) {
-      console.error("Error adding funds:", error.response.data);
+      console.error("Error placing bet:", error.response?.data);
+      toast.error("Failed to place bet");
+      return false;
+    } finally {
+      setLoading(false);
     }
-    setBetAmount(betAmount);
-    return true;
   };
 
   const handleCellClick = async (number, playcoin, playbomb, isDev) => {
@@ -120,6 +148,7 @@ export function GameProvider({ children }) {
       return;
     }
     const element = document.getElementById(number);
+    setLoading(true);
     try {
       if (isDev) {
         console.group(`🎲 Revealing Cell ${number}`);
@@ -140,18 +169,21 @@ export function GameProvider({ children }) {
         playcoin();
         setCurrentMultiplier(response.data.currentMultiplier);
         setRevealedCells(response.data.revealedTiles);
+        toast.success("Cell revealed successfully");
       } else {
         playbomb();
         setGameStatus('lost');
         setBetAmount(0);
+        toast.error("You hit a bomb!");
       }
     } catch (error) {
       console.error("Error revealing cell:", error);
+      toast.error("Failed to reveal cell");
     } finally {
       element?.classList.remove('animate-reveal');
       setIsAnimating(false);
+      setLoading(false);
     }
-
   };
 
   return (
@@ -162,6 +194,7 @@ export function GameProvider({ children }) {
       isActiveGame,
       bombPositions,
       revealedCells,
+      gameStatus,
       addFunds,
       placeBet,
       handleCashout,
@@ -170,9 +203,10 @@ export function GameProvider({ children }) {
       setIsActiveGame,
       setRevealedCells,
       handleCellClick,
-      gameStatus,
+      setGameStatus,
       currentMultiplier,
-      isAnimating
+      isAnimating,
+      loading
     }}>
       {children}
     </GameContext.Provider>

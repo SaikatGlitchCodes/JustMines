@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Header from './components/Header';
 import axios from 'axios';
 import { useAuth } from '@clerk/clerk-react';
+import Lottie from 'lottie-react';
 
 const GRID_SIZE = 25;
 const GRID_BUTTONS = Array.from({ length: GRID_SIZE }, (_, i) => i + 1);
@@ -24,7 +25,6 @@ function App() {
   const [gameState, setGameState] = useState({
     isAnimating: false,
     selectedNumber: 4,
-    gameStatus: 'playing',
     inputAmount: 0,
     currentMultiplier: 1,
     isMultiplierVisible: false,
@@ -41,13 +41,18 @@ function App() {
     revealedCells,
     setRevealedCells,
     setBombPositions,
-    setIsActiveGame
+    setIsActiveGame,
+    initialLoading,
+    placeBetLoading,
+    cashoutLoading,
+    setGameStatus,
+    gameStatus
   } = useGame();
 
   const [playcoin] = useSound(coinsound, { volume: gameState.volume });
   const [playbomb] = useSound(bombsound, { volume: gameState.volume });
   const [playmouseclick] = useSound(mouseclick, { volume: 1 });
-
+  
   const handleNumberChange = useCallback((newValue) => {
     if (isActiveGame) return;
 
@@ -142,11 +147,11 @@ function App() {
         setBombPositions(data.minesPositions);
         setGameState(prev => ({
           ...prev,
-          gameStatus: 'lost',
           inputAmount: 0
         }));
+        setGameStatus('lost')
         setIsActiveGame(false);
-
+        
         if (isDev) {
           console.log('💥 Game Over:', {
             revealedTiles: data.revealedTiles,
@@ -196,7 +201,7 @@ function App() {
     }
 
     const amount = Number(gameState.inputAmount);
-    if ( amount > balance) {
+    if ( amount > balance && amount < 0) {
       if (isDev) {
         console.warn('⚠️ Invalid Bet Amount:', {
           amount,
@@ -245,12 +250,16 @@ function App() {
         isRevealed={revealedCells.includes(num)}
         isBomb={bombPositions.includes(num)}
         onClick={handleCellClick}
-        gameStatus={gameState.gameStatus}
+        gameStatus={gameStatus}
         disabled={gameState.isAnimating}
       />
     ))
-  ), [revealedCells, bombPositions, gameState.isAnimating, gameState.gameStatus, handleCellClick]);
+  ), [revealedCells, bombPositions, gameState.isAnimating, gameStatus, handleCellClick]);
 
+  if(initialLoading){
+    return <div className='flex flex-col items-center justify-center h-screen'><Lottie animationData={coin} loop={true} className='w-64 md:w-32'/> <h1 className='text-3xl text-white'>Loading...</h1></div>;
+  }
+  
   return (
     <div className='relative flex flex-col items-center justify-center pb-6 select-none'>
       <Header />
@@ -336,7 +345,7 @@ function App() {
             'px-24 py-2 bg-yellow-300 rounded-lg'
           }
         >
-          {isActiveGame ?
+          {placeBetLoading||cashoutLoading?'Loading...': isActiveGame ?
             `CASHOUT (${(gameState.currentMultiplier * gameState.inputAmount).toFixed(2)})` :
             'BET'
           }
