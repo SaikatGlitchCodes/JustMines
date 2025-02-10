@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useWallet } from '../context/WalletContext';
+import { useGame } from '../context/GameContext';
 
 const AMOUNT_BUTTONS = [
   { value: 500, label: '500' },
@@ -15,7 +15,7 @@ export const AddAmount = () => {
   const [amount, setAmount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { addFunds } = useWallet();
+  const { addFunds } = useGame();
 
   const handleAmountChange = (e) => {
     const value = e.target.value;
@@ -56,7 +56,7 @@ export const AddAmount = () => {
         {AMOUNT_BUTTONS.map(({ value, label }) => (
           <button
             key={value}
-            className="px-8 py-2 bg-[#4f9ffc] rounded-md hover:bg-[#3d8fe6] transition-colors"
+            className="px-8 py-2 bg-[#4f9ffc] rounded-md hover:bg-[#3d8fe6] transition-colors hidden md:block"
             onClick={() => setAmount(String(value))}
           >
             {label}

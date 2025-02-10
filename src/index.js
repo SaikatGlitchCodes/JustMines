@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
-import { WalletProvider } from './context/WalletContext';
+import { GameProvider } from './context/GameContext';
 import { ClerkProvider } from '@clerk/clerk-react';
 
 const PUBLISHABLE_KEY = 'pk_test_Zm9uZC1tdXN0YW5nLTMwLmNsZXJrLmFjY291bnRzLmRldiQ'
@@ -15,9 +15,9 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-      <WalletProvider>
+      <GameProvider>
         <App />
-      </WalletProvider>
+      </GameProvider>
     </ClerkProvider>
   </React.StrictMode>
 );

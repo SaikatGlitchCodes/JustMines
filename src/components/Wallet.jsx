@@ -5,7 +5,7 @@ import wallet from '../assests/wallet.json'
 import upi from '../assests/upi_logo_icon.png'
 import netbanking from '../assests/internet-banking.png'
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWallet } from '../context/WalletContext';
+import { useGame } from '../context/GameContext';
 import { AddAmount } from "./AddAmount";
 
 const SCREENS = {
@@ -82,7 +82,7 @@ const PaymentScreen = ({ onBack }) => {
                             className={`w-4/5 px-5 border-2 rounded-md text-white 
                         ${paymentModeUpi ? 'border-[#4f9ffc]' : 'border-[#c4c4c4]'} px-4`}
                         >
-                            <div className="flex items-center justify-between "><h1 className="">UPI</h1> <img src={upi} className="h-12" /></div>
+                            <div className="flex items-center justify-between "><h1 className="">UPI</h1> <img src={upi} alt="UPI logo" className="h-12" /></div>
                             {
                                 paymentModeUpi && <AddAmount/>
                             }
@@ -96,7 +96,7 @@ const PaymentScreen = ({ onBack }) => {
                             className={`w-4/5 px-5 border-2 rounded-md text-white 
                         ${!paymentModeUpi ? 'border-[#4f9ffc]' : 'border-[#c4c4c4]'} px-4`}
                         >
-                            <div className="flex items-center justify-between "><h1 className="">Net Banking</h1> <img src={netbanking} className="h-12" /></div>
+                            <div className="flex items-center justify-between "><h1 className="">Net Banking</h1> <img src={netbanking} alt="Net Banking logo" className="h-12" /></div>
                             {
                                 !paymentModeUpi && <AddAmount />
                             }
@@ -112,9 +112,8 @@ const PaymentScreen = ({ onBack }) => {
 };
 
 export default function Wallet() {
-    const [open, setOpen] = useState(false);
     const [currentScreen, setCurrentScreen] = useState(SCREENS.DEPOSIT);
-    const { balance } = useWallet();
+    const { balance, openWalletModel, setOpenWalletModel } = useGame();
 
     const handleNext = () => setCurrentScreen(SCREENS.PAYMENT);
     const handleBack = () => setCurrentScreen(SCREENS.DEPOSIT);
@@ -123,7 +122,7 @@ export default function Wallet() {
         return (
             <AnimatePresence mode="wait">
                 {currentScreen === SCREENS.DEPOSIT ? (
-                    <DepositScreen setOpen={setOpen} onNext={handleNext} />
+                    <DepositScreen setOpen={setOpenWalletModel} onNext={handleNext} />
                 ) : (
                     <PaymentScreen onBack={handleBack} />
                 )}
@@ -142,7 +141,7 @@ export default function Wallet() {
                         disabled
                         placeholder="0.00"
                         className="block min-w-0 grow py-1.5 pl-1 pr-3 text-base text-white placeholder:text-gray-400 focus:outline bg-[#243948] focus:outline-0 sm:text-sm/6 "
-                        value={balance.toFixed(2)}
+                        value={balance}
                     />
                     <div className="grid grid-cols-1 shrink-0 focus-within:relative">
                         <select
@@ -167,15 +166,15 @@ export default function Wallet() {
             <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setOpen(true)}
+                onClick={() => setOpenWalletModel(true)}
                 className="px-4 py-2 rounded-lg bg-[#ffed26]"
             >
                 Wallet
             </motion.button>
             <AnimatePresence>
-                {open && (
-                    <Dialog open={open} onClose={() => {
-                        setOpen(false);
+                {openWalletModel && (
+                    <Dialog open={openWalletModel} onClose={() => {
+                        setOpenWalletModel(false);
                         setCurrentScreen(SCREENS.DEPOSIT);
                     }} className="relative z-10">
                         <motion.div

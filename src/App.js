@@ -1,3 +1,4 @@
+// App.js
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import bomb from './assests/bomb1.json';
 import coin from './assests/coin1.json';
@@ -8,224 +9,265 @@ import ScoreCard from './components/ScoreCard';
 import GameButton from './components/GameButton';
 import NumberSelector from './components/NumberSelector';
 import useSound from 'use-sound';
-import { generateGameState, verifyGameState } from './services/gameService';
 import Wallet from './components/Wallet';
-import { useWallet } from './context/WalletContext';
+import { useGame } from './context/GameContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import Header from './components/Header';
-import { useAuth } from "@clerk/clerk-react";
+import axios from 'axios';
+import { useAuth } from '@clerk/clerk-react';
 
 const GRID_SIZE = 25;
 const GRID_BUTTONS = Array.from({ length: GRID_SIZE }, (_, i) => i + 1);
-const REVEAL_DELAY = 1000;
-
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const isDev = process.env.NODE_ENV === 'development';
 
 function App() {
-  // Add new state for animation tracking
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [selectedNumber, setSelectedNumber] = useState(2);
-  const [bombPositions, setBombPositions] = useState([]);
-  const [revealedCells, setRevealedCells] = useState(new Set());
-  const [gameStatus, setGameStatus] = useState('playing'); // 'playing', 'won', 'lost'
-  const [volume, setVolume] = useState(0.5);
-  const [playcoin] = useSound(coinsound, { volume: volume });
-  const [playbomb] = useSound(bombsound, { volume: volume });
-  const [playmouseclick] = useSound(mouseclick, { volume: 1 });
-  const [gameState, setGameState] = useState(null);
-  const { handleCashout, handleLoss, balance, placeBet } = useWallet();
-  const [gameStarted, setGameStarted] = useState(false);
-  const [inputAmount, setInputAmount] = useState(0);
-  const [currentMultiplier, setCurrentMultiplier] = useState(1);
-  // Add new state for visibility
-  const [isMultiplierVisible, setIsMultiplierVisible] = useState(false);
-  const { getToken, isSignedIn } = useAuth();
-  const [userData, setUserData] = useState(null);
-
-  // Memoize game state generation
-  const generateNewGameState = useCallback((size, number) => {
-    return generateGameState(size, number);
-  }, []);
-
-  // Optimize useEffect
-  useEffect(() => {
-    if (!gameStarted) return; // Early return if game hasn't started
-
-    const newGameState = generateNewGameState(GRID_SIZE, selectedNumber);
-    // Batch state updates
-    const updateStates = () => {
-      setGameState(newGameState);
-      setBombPositions(newGameState.bombPositions);
-      setRevealedCells(new Set());
-      setVolume(0.5);
-    };
-    updateStates();
-  }, [selectedNumber, gameStarted, generateNewGameState]);
-
-  // Memoize number change handler
-  const handleNumberChange = useCallback((newValue) => {
-    if (gameStarted) return; // Early return if game is started
-
-    setSelectedNumber(prev => Math.min(Math.max(newValue, 1), 24));
-  }, [gameStarted]);
-
-  // Memoize cell click handler
-  const handleCellClick = useCallback(async (number) => {
-    console.log('currentMultiplier', currentMultiplier)
-    // Early return conditions using single if statement
-    if (!gameStarted || isAnimating || gameStatus !== 'playing' || revealedCells.has(number)) {
-      console.debug('Click blocked:', {
-        notStarted: !gameStarted,
-        animating: isAnimating,
-        invalidStatus: gameStatus !== 'playing',
-        alreadyRevealed: revealedCells.has(number),
-      });
-
-
-      return;
-    }
-
-    setIsAnimating(true);
-    document.getElementById(number).classList.add('animate-reveal');
-
-    // Verify move with game state
-    const verification = verifyGameState(gameState, number);
-    if (!verification.isValid) {
-      setGameStatus('error');
-      return;
-    }
-
-    await delay(REVEAL_DELAY);
-    document.getElementById(number).classList.remove('animate-reveal');
-
-    const newRevealedCells = new Set(revealedCells);
-    newRevealedCells.add(number);
-    setRevealedCells(newRevealedCells);
-
-    // Play appropriate sound based on what was revealed
-    if (verification.isBomb) {
-      console.log('BOMB!');
-      playbomb();
-      handleLoss();
-      setGameStatus('lost');
-      setInputAmount(0);
-    } else {
-      console.log('COIN!');
-      playcoin();
-      const newMultiplier = calculateMultiplier(newRevealedCells.size, selectedNumber);
-      setCurrentMultiplier(newMultiplier);
-    }
-    // Increase volume with each reveal
-    setVolume(prev => prev + .25);
-    setIsAnimating(false);
-  }, [gameStarted, isAnimating, gameStatus, revealedCells, selectedNumber, gameState]);
-
-  const calculateMultiplier = useCallback((revealed, bombs) => {
-    if (revealed === 0) return 1;
-    const safeCells = GRID_SIZE - bombs;
-    let multiplier = 1;
-    for (let i = 0; i < revealed; i++) {
-      multiplier *= (safeCells - i) / (GRID_SIZE - i);
-    }
-    return 1 / multiplier;
-  }, []);
-
-  const handleBet = () => {
-    if (gameStarted) {
-      // Cashout logic
-      handleCashout(currentMultiplier);
-      setGameStarted(false);
-      setGameStatus('playing');
-      setRevealedCells(new Set());
-      setCurrentMultiplier(1);
-      playmouseclick();
-    } else {
-      // Betting logic
-      const amount = Number(inputAmount);
-      if ( amount <= balance && placeBet(amount)) {
-        setGameStarted(true);
-        playmouseclick();
-      }
-    }
-  };
-
-  // Add useEffect for auto-hide
-  useEffect(() => {
-    if (currentMultiplier > 1) {
-      setIsMultiplierVisible(true);
-      const timer = setTimeout(() => {
-        setIsMultiplierVisible(false);
-      }, 1000); // Hide after 1 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [currentMultiplier]);
-
-  // Fetch user data
-  useEffect(() => {
-    console.log('isSignedIn', isSignedIn)
-    if (!isSignedIn) return;
-    console.log('isSignedIn', isSignedIn)
-    const fetchUser = async () => {
-      try {
-        const token = await getToken();
-        console.log('Token:', token);
-        const response = await fetch("http://localhost:2000/protected", {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch user");
-        }
-
-        const data = await response.json();
-        console.log('data', data)
-        setUserData(data);
-      } catch (error) {
-        console.error("Error fetching user:", error);
-      }
-    };
-
-    fetchUser();
+  const [gameState, setGameState] = useState({
+    isAnimating: false,
+    selectedNumber: 4,
+    gameStatus: 'playing',
+    inputAmount: 0,
+    currentMultiplier: 1,
+    isMultiplierVisible: false,
+    volume: 0.5
   });
 
-  console.log('userData', userData)
-  
-  // Pass isAnimating to GameButton
+  const { getToken } = useAuth();
+  const {
+    handleCashout,
+    balance,
+    placeBet,
+    isActiveGame,
+    bombPositions,
+    revealedCells,
+    setRevealedCells,
+    setBombPositions,
+    setIsActiveGame
+  } = useGame();
+
+  const [playcoin] = useSound(coinsound, { volume: gameState.volume });
+  const [playbomb] = useSound(bombsound, { volume: gameState.volume });
+  const [playmouseclick] = useSound(mouseclick, { volume: 1 });
+
+  const handleNumberChange = useCallback((newValue) => {
+    if (isActiveGame) return;
+
+    const validNumber = Math.min(Math.max(parseInt(newValue), 1), 24);
+    if (isDev) {
+      console.log('🔢 Number Changed:', { oldValue: gameState.selectedNumber, newValue: validNumber });
+    }
+
+    setGameState(prev => ({
+      ...prev,
+      selectedNumber: validNumber
+    }));
+  }, [isActiveGame, gameState.selectedNumber]);
+
+  const handleCellClick = useCallback(async (number) => {
+    if (!isActiveGame || gameState.isAnimating || revealedCells.includes(number)) {
+      if (isDev) {
+        console.group('🛑 Cell Click Blocked');
+        console.log('Active Game:', isActiveGame);
+        console.log('Is Animating:', gameState.isAnimating);
+        console.log('Already Revealed:', revealedCells.includes(number));
+        console.groupEnd();
+      }
+      return;
+    }
+    const element = document.getElementById(number);
+    try {
+      if (isDev) {
+        console.group(`🎲 Revealing Cell ${number}`);
+        console.time('Cell Reveal Duration');
+      }
+
+      setGameState(prev => ({ ...prev, isAnimating: true }));
+
+      element?.classList.add('animate-reveal');
+
+      const token = await getToken();
+
+      if (isDev) {
+        console.log('📡 Sending Request:', {
+          position: number,
+          currentState: {
+            revealed: revealedCells,
+            bombs: bombPositions
+          }
+        });
+      }
+
+      const response = await axios.post(
+        'http://192.168.1.14:2000/game/reveal',
+        { revealedPosition: number },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      const { status, data } = response.data;
+
+      if (isDev) {
+        console.log('📥 Server Response:', {
+          status,
+          data: {
+            ...data,
+            revealedTiles: data.revealedTiles?.length
+              ? `[${data.revealedTiles.join(', ')}]`
+              : '[]'
+          }
+        });
+      }
+
+      if (data.status === "CONTINUE") {
+        playcoin();
+        setGameState(prev => ({
+          ...prev,
+          currentMultiplier: data.currentMultiplier,
+          volume: Math.min(prev.volume + 0.25, 1)
+        }));
+        setRevealedCells(data.revealedTiles);
+
+        if (isDev) {
+          console.log('✅ Game Continues:', {
+            multiplier: data.currentMultiplier,
+            newVolume: Math.min(gameState.volume + 0.25, 1)
+          });
+        }
+      } else if (data.status === 'GAME_OVER') {
+        playbomb();
+        setRevealedCells(data.revealedTiles);
+        setBombPositions(data.minesPositions);
+        setGameState(prev => ({
+          ...prev,
+          gameStatus: 'lost',
+          inputAmount: 0
+        }));
+        setIsActiveGame(false);
+
+        if (isDev) {
+          console.log('💥 Game Over:', {
+            revealedTiles: data.revealedTiles,
+            minesPositions: data.minesPositions
+          });
+        }
+      }
+
+    } catch (error) {
+      if (isDev) {
+        console.group('❌ Cell Reveal Error');
+        console.error('Error Details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
+        console.groupEnd();
+      }
+    } finally {
+      element?.classList.remove('animate-reveal');
+      setGameState(prev => ({ ...prev, isAnimating: false }));
+      if (isDev) {
+        console.timeEnd('Cell Reveal Duration');
+        console.groupEnd();
+      }
+    }
+  }, [isActiveGame, gameState.isAnimating, gameState.volume, revealedCells, getToken, playcoin, playbomb, setBombPositions, setRevealedCells, setIsActiveGame]);
+
+  const handleBet = useCallback(() => {
+    if (isDev) {
+      console.group('💰 Bet Handler');
+      console.log('Current State:', {
+        isActiveGame,
+        amount: gameState.inputAmount,
+        balance,
+        selectedNumber: gameState.selectedNumber
+      });
+    }
+
+    if (isActiveGame) {
+      if (isDev) console.log('🔄 Cashing Out');
+      handleCashout();
+      setRevealedCells([]);
+      playmouseclick();
+      if (isDev) console.groupEnd();
+      return;
+    }
+
+    const amount = Number(gameState.inputAmount);
+    if ( amount > balance) {
+      if (isDev) {
+        console.warn('⚠️ Invalid Bet Amount:', {
+          amount,
+          balance,
+          reason: 'Insufficient balance'
+        });
+        console.groupEnd();
+      }
+      return;
+    }
+
+    if (isDev) {
+      console.log('✅ Placing Bet:', {
+        amount,
+        bombCount: gameState.selectedNumber
+      });
+    }
+
+    const success = placeBet(amount, gameState.selectedNumber);
+    if (success) {
+      playmouseclick();
+    }
+
+    if (isDev) {
+      console.log('Bet Result:', success ? '✅ Success' : '❌ Failed');
+      console.groupEnd();
+    }
+  }, [isActiveGame, gameState.inputAmount, gameState.selectedNumber, balance, handleCashout, placeBet, playmouseclick]);
+
+  useEffect(() => {
+    if (gameState.currentMultiplier <= 1) return;
+
+    setGameState(prev => ({ ...prev, isMultiplierVisible: true }));
+    const timer = setTimeout(() => {
+      setGameState(prev => ({ ...prev, isMultiplierVisible: false }));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [gameState.currentMultiplier]);
+
   const gridButtons = useMemo(() => (
     GRID_BUTTONS.map(num => (
       <GameButton
         key={num}
         number={num}
-        isRevealed={revealedCells.has(num)}
+        isRevealed={revealedCells.includes(num)}
         isBomb={bombPositions.includes(num)}
         onClick={handleCellClick}
-        gameStatus={gameStatus}
-        disabled={isAnimating}
+        gameStatus={gameState.gameStatus}
+        disabled={gameState.isAnimating}
       />
     ))
-  ), [revealedCells, bombPositions, isAnimating]);
+  ), [revealedCells, bombPositions, gameState.isAnimating, gameState.gameStatus, handleCellClick]);
 
   return (
     <div className='relative flex flex-col items-center justify-center pb-6 select-none'>
       <Header />
       <AnimatePresence mode="wait">
-        {isMultiplierVisible && currentMultiplier > 1 && (
+        {gameState.isMultiplierVisible && gameState.currentMultiplier > 1 && (
           <motion.h1
-            key={currentMultiplier}
+            key={gameState.currentMultiplier}
             initial={{ opacity: 0, y: -20, scale: 0.5 }}
-            animate={{ 
-              opacity: 1, 
-              y: 0, 
-              scale: currentMultiplier > 10 ? 2.5 : 
-                     currentMultiplier > 5 ? 2 : 
-                     currentMultiplier > 2 ? 1.5 : 1
+            animate={{
+              opacity: 1,
+              y: 0,
+              scale: gameState.currentMultiplier > 10 ? 2.5 :
+                gameState.currentMultiplier > 5 ? 2 :
+                  gameState.currentMultiplier > 2 ? 1.5 : 1
             }}
             exit={{ opacity: 0, y: 20, scale: 0.5 }}
-            transition={{ 
+            transition={{
               duration: 0.5,
               type: "spring",
               stiffness: 200
@@ -236,40 +278,69 @@ function App() {
               flex items-center justify-center
               pointer-events-none
               z-50
-              ${currentMultiplier > 10 ? 'text-6xl text-red-400' :
-                currentMultiplier > 5 ? 'text-5xl text-green-400' :
-                currentMultiplier > 2 ? 'text-4xl text-yellow-400' :
-                'text-3xl text-white'}
+              ${gameState.currentMultiplier > 10 ? 'text-6xl text-red-400' :
+                gameState.currentMultiplier > 5 ? 'text-5xl text-green-400' :
+                  gameState.currentMultiplier > 2 ? 'text-4xl text-yellow-400' :
+                    'text-3xl text-white'}
             `}
           >
-            {`${currentMultiplier.toFixed(2)}x`}
+            {`${gameState.currentMultiplier}x`}
           </motion.h1>
         )}
       </AnimatePresence>
+
       <Wallet />
+
       <div className="flex items-center justify-center gap-x-6">
-        <ScoreCard title="Coins" animation={coin} count={25 - selectedNumber} handleNumberChange={handleNumberChange} />
+        <ScoreCard
+          title="Coins"
+          animation={coin}
+          count={25 - gameState.selectedNumber}
+          handleNumberChange={handleNumberChange}
+        />
         <div className='relative grid grid-cols-5 gap-3 grid-row-5'>
           {gridButtons}
         </div>
-        <ScoreCard title="Bombs" animation={bomb} count={selectedNumber} handleNumberChange={handleNumberChange} />
+        <ScoreCard
+          title="Bombs"
+          animation={bomb}
+          count={gameState.selectedNumber}
+          handleNumberChange={handleNumberChange}
+        />
       </div>
-      <div className='flex items-center justify-center w-full px-5 mt-10'>
-          {gameStarted &&  <button onClick={handleBet} className='px-4 py-2 bg-white rounded-lg'>
-          {`CASHOUT (${(currentMultiplier * inputAmount).toFixed(2)})`}
-          </button> }
-        <div className='flex items-center justify-center'>
-          {!gameStarted && <input
-            type="number"
-            value={inputAmount}
-            disabled={gameStarted && gameStatus === 'playing'}
-            onChange={(e) => setInputAmount(e.target.value)}
-            placeholder="Enter bet amount"
-            className="w-32 h-10 px-4 py-2 text-black bg-white rounded-md"
-          />}
-          <NumberSelector selectedNumber={selectedNumber} handleNumberChange={handleNumberChange} />
+
+      <div className='flex flex-col items-center justify-center w-full px-5 mt-10 md:flex-row'>
+        <div className='flex flex-col items-center justify-center md:flex-row'>
+          {!isActiveGame && (
+            <input
+              type="number"
+              value={gameState.inputAmount}
+              onChange={(e) => setGameState(prev => ({
+                ...prev,
+                inputAmount: e.target.value
+              }))}
+              placeholder="Enter bet amount"
+              className="w-32 h-10 px-4 py-2 text-black bg-white rounded-md"
+            />
+          )}
+          <NumberSelector
+            selectedNumber={gameState.selectedNumber}
+            handleNumberChange={handleNumberChange}
+          />
         </div>
-          {!gameStarted && <button onClick={handleBet} className='px-24 py-2 bg-yellow-300 rounded-lg'>BET</button>}
+
+        <button
+          onClick={handleBet}
+          className={isActiveGame ?
+            'px-4 py-2 bg-white rounded-lg' :
+            'px-24 py-2 bg-yellow-300 rounded-lg'
+          }
+        >
+          {isActiveGame ?
+            `CASHOUT (${(gameState.currentMultiplier * gameState.inputAmount).toFixed(2)})` :
+            'BET'
+          }
+        </button>
       </div>
     </div>
   );
