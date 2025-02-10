@@ -345,7 +345,7 @@ function App() {
             'px-24 py-2 bg-yellow-300 rounded-lg'
           }
         >
-          {placeBetLoading||cashoutLoading?'Loading...': isActiveGame ?
+          {placeBetLoading || cashoutLoading?'Loading...': isActiveGame ?
             `CASHOUT (${(gameState.currentMultiplier * gameState.inputAmount).toFixed(2)})` :
             'BET'
           }
