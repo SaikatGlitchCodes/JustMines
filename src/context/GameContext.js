@@ -27,18 +27,18 @@ export function GameProvider({ children }) {
         const token = await getToken();
         console.log('🔑 Token:', token);
         setInitialLoading(true);
-        const response = await axios.get('https://justminesbackend.onrender.com/auth/me',
+        const response = await axios.get('http://localhost:2000/auth/me',
           {
             headers: { "Authorization": `Bearer ${token}` }
           });
-        console.log('🍄 isActive:', Boolean(response.data?.activeGame));
-        console.log(Boolean(response.data?.activeGame), response.data?.activeGame?.revealedTiles);
-        if(Boolean(response.data.activeGame)){
-          setRevealedCells(response.data.activeGame.revealedTiles);
+        console.log('🍄 isActive:', (response.data));
+        console.log(Boolean(response.data?.data.activeGame), response.data?.data.activeGame?.revealedTiles);
+        if(Boolean(response.data.data.activeGame)){
+          setRevealedCells(response.data.data.activeGame.revealedTiles);
         }
 
-        setBalance(Number(response.data.user.wallet.balance));
-        setIsActiveGame(Boolean(response.data.activeGame));
+        setBalance(Number(response.data.data.user.wallet.balance));
+        setIsActiveGame(Boolean(response.data.data.activeGame));
 
         if (response.status !== 200) {
           throw new Error("Failed to fetch user");
@@ -54,7 +54,7 @@ export function GameProvider({ children }) {
     console.log('Depositing amount:', amount);
     try {
       const token = await getToken();
-      const response = await axios.post('https://justminesbackend.onrender.com/wallet/deposit',
+      const response = await axios.post('http://localhost:2000/wallet/deposit',
         { amount: Number(amount) },
         {
           headers: {
@@ -74,7 +74,7 @@ export function GameProvider({ children }) {
     try {
       const token = await getToken();
       setCashoutLoading(true);
-      const response = await axios.post('https://justminesbackend.onrender.com/game/cashout',
+      const response = await axios.post('http://localhost:2000/game/cashout',
         {},
         {
           headers: {
@@ -83,7 +83,7 @@ export function GameProvider({ children }) {
           }
         });
       setBalance(Number(response.data?.data?.balance));
-      
+      setCurrentMultiplier(1);
       setIsActiveGame(false);
     } catch (error) {
       console.error("Error adding funds:", error?.response?.data?.error);
@@ -98,7 +98,7 @@ export function GameProvider({ children }) {
     try {
       const token = await getToken();
       setPlaceBetLoading(true);
-      const response = await axios.post('https://justminesbackend.onrender.com/game/start',
+      const response = await axios.post('http://localhost:2000/game/start',
         {
           betAmount,
           bombCount
@@ -124,52 +124,6 @@ export function GameProvider({ children }) {
     return true;
   };
 
-  const handleCellClick = async (number, playcoin, playbomb, isDev) => {
-    if (!isActiveGame || isAnimating || revealedCells.includes(number)) {
-      if (isDev) {
-        console.group('🛑 Cell Click Blocked');
-        console.log('Active Game:', isActiveGame);
-        console.log('Is Animating:', isAnimating);
-        console.log('Already Revealed:', revealedCells.includes(number));
-        console.groupEnd();
-      }
-      return;
-    }
-    const element = document.getElementById(number);
-    try {
-      if (isDev) {
-        console.group(`🎲 Revealing Cell ${number}`);
-      }
-      setIsAnimating(true);
-      element?.classList.add('animate-reveal');
-
-      const token = await getToken();
-      const response = await axios.post(
-        'https://justminesbackend.onrender.com/game/reveal',
-        { 
-          tileNumber: number 
-        },
-        { headers: { "Authorization": `Bearer ${token}` }}
-      );
-
-      if (response.data.status === "SUCCESS") {
-        playcoin();
-        setCurrentMultiplier(response.data.currentMultiplier);
-        setRevealedCells(response.data.revealedTiles);
-      } else {
-        playbomb();
-        setGameStatus('lost');
-        setBetAmount(0);
-      }
-    } catch (error) {
-      console.error("Error revealing cell:", error);
-    } finally {
-      element?.classList.remove('animate-reveal');
-      setIsAnimating(false);
-    }
-
-  };
-
   return (
     <GameContext.Provider value={{
       balance,
@@ -191,7 +145,7 @@ export function GameProvider({ children }) {
       setBombPositions,
       setIsActiveGame,
       setRevealedCells,
-      handleCellClick,
+      setCurrentMultiplier,
       setGameStatus
     }}>
       {children}

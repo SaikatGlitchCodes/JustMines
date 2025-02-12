@@ -12,7 +12,7 @@ const MIN_AMOUNT = 500;
 const MAX_AMOUNT = 49999;
 
 export const AddAmount = () => {
-  const [amount, setAmount] = useState(0);
+  const [amount, setAmount] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { addFunds } = useGame();

@@ -25,8 +25,7 @@ function App() {
   const [gameState, setGameState] = useState({
     isAnimating: false,
     selectedNumber: 4,
-    inputAmount: 0,
-    currentMultiplier: 1,
+    inputAmount: null,
     isMultiplierVisible: false,
     volume: 0.5
   });
@@ -38,6 +37,7 @@ function App() {
     placeBet,
     isActiveGame,
     bombPositions,
+    currentMultiplier,
     revealedCells,
     setRevealedCells,
     setBombPositions,
@@ -46,6 +46,7 @@ function App() {
     placeBetLoading,
     cashoutLoading,
     setGameStatus,
+    setCurrentMultiplier,
     gameStatus
   } = useGame();
 
@@ -102,7 +103,7 @@ function App() {
       }
 
       const response = await axios.post(
-        'https://justminesbackend.onrender.com/game/reveal',
+        'http://localhost:2000/game/reveal',
         { revealedPosition: number },
         {
           headers: {
@@ -130,11 +131,10 @@ function App() {
         playcoin();
         setGameState(prev => ({
           ...prev,
-          currentMultiplier: data.currentMultiplier,
           volume: Math.min(prev.volume + 0.25, 1)
         }));
         setRevealedCells(data.revealedTiles);
-
+        setCurrentMultiplier(data.currentMultiplier);
         if (isDev) {
           console.log('✅ Game Continues:', {
             multiplier: data.currentMultiplier,
@@ -143,12 +143,11 @@ function App() {
         }
       } else if (data.status === 'GAME_OVER') {
         playbomb();
-        setRevealedCells(data.revealedTiles);
-        setBombPositions(data.minesPositions);
         setGameState(prev => ({
           ...prev,
           inputAmount: 0
         }));
+        setCurrentMultiplier(1);
         setGameStatus('lost')
         setIsActiveGame(false);
         
@@ -232,7 +231,7 @@ function App() {
   }, [isActiveGame, gameState.inputAmount, gameState.selectedNumber, balance, handleCashout, placeBet, playmouseclick]);
 
   useEffect(() => {
-    if (gameState.currentMultiplier <= 1) return;
+    if (currentMultiplier <= 1) return;
 
     setGameState(prev => ({ ...prev, isMultiplierVisible: true }));
     const timer = setTimeout(() => {
@@ -240,7 +239,7 @@ function App() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [gameState.currentMultiplier]);
+  }, [currentMultiplier]);
 
   const gridButtons = useMemo(() => (
     GRID_BUTTONS.map(num => (
@@ -264,16 +263,16 @@ function App() {
     <div className='relative flex flex-col items-center justify-center pb-6 select-none'>
       <Header />
       <AnimatePresence mode="wait">
-        {gameState.isMultiplierVisible && gameState.currentMultiplier > 1 && (
+        {gameState.isMultiplierVisible && currentMultiplier > 1 && (
           <motion.h1
-            key={gameState.currentMultiplier}
+            key={currentMultiplier}
             initial={{ opacity: 0, y: -20, scale: 0.5 }}
             animate={{
               opacity: 1,
               y: 0,
-              scale: gameState.currentMultiplier > 10 ? 2.5 :
-                gameState.currentMultiplier > 5 ? 2 :
-                  gameState.currentMultiplier > 2 ? 1.5 : 1
+              scale: currentMultiplier > 10 ? 2.5 :
+                currentMultiplier > 5 ? 2 :
+                  currentMultiplier > 2 ? 1.5 : 1
             }}
             exit={{ opacity: 0, y: 20, scale: 0.5 }}
             transition={{
@@ -287,13 +286,13 @@ function App() {
               flex items-center justify-center
               pointer-events-none
               z-50
-              ${gameState.currentMultiplier > 10 ? 'text-6xl text-red-400' :
-                gameState.currentMultiplier > 5 ? 'text-5xl text-green-400' :
-                  gameState.currentMultiplier > 2 ? 'text-4xl text-yellow-400' :
+              ${currentMultiplier > 10 ? 'text-6xl text-red-400' :
+                currentMultiplier > 5 ? 'text-5xl text-green-400' :
+                  currentMultiplier > 2 ? 'text-4xl text-yellow-400' :
                     'text-3xl text-white'}
             `}
           >
-            {`${gameState.currentMultiplier}x`}
+            {`${currentMultiplier}x`}
           </motion.h1>
         )}
       </AnimatePresence>
@@ -346,7 +345,7 @@ function App() {
           }
         >
           {placeBetLoading || cashoutLoading?'Loading...': isActiveGame ?
-            `CASHOUT (${(gameState.currentMultiplier * gameState.inputAmount).toFixed(2)})` :
+            `CASHOUT (${(currentMultiplier * gameState.inputAmount).toFixed(2)})` :
             'BET'
           }
         </button>
