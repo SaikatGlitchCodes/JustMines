@@ -103,7 +103,7 @@ function App() {
       }
 
       const response = await axios.post(
-        'https://justminesbackend.onrender.com//game/reveal',
+        'https://justminesbackend.onrender.com/game/reveal',
         { revealedPosition: number },
         {
           headers: {
