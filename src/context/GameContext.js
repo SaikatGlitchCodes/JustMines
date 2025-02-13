@@ -27,7 +27,7 @@ export function GameProvider({ children }) {
         const token = await getToken();
         console.log('🔑 Token:', token);
         setInitialLoading(true);
-        const response = await axios.get('http://localhost:2000/auth/me',
+        const response = await axios.get('https://justminesbackend.onrender.com//auth/me',
           {
             headers: { "Authorization": `Bearer ${token}` }
           });
@@ -54,7 +54,7 @@ export function GameProvider({ children }) {
     console.log('Depositing amount:', amount);
     try {
       const token = await getToken();
-      const response = await axios.post('http://localhost:2000/wallet/deposit',
+      const response = await axios.post('https://justminesbackend.onrender.com//wallet/deposit',
         { amount: Number(amount) },
         {
           headers: {
@@ -74,7 +74,7 @@ export function GameProvider({ children }) {
     try {
       const token = await getToken();
       setCashoutLoading(true);
-      const response = await axios.post('http://localhost:2000/game/cashout',
+      const response = await axios.post('https://justminesbackend.onrender.com//game/cashout',
         {},
         {
           headers: {
@@ -98,7 +98,7 @@ export function GameProvider({ children }) {
     try {
       const token = await getToken();
       setPlaceBetLoading(true);
-      const response = await axios.post('http://localhost:2000/game/start',
+      const response = await axios.post('https://justminesbackend.onrender.com//game/start',
         {
           betAmount,
           bombCount
