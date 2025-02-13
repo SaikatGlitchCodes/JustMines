@@ -148,7 +148,9 @@ function App() {
           inputAmount: 0
         }));
         setCurrentMultiplier(1);
-        setGameStatus('lost')
+        setGameStatus('lost');
+        setRevealedCells(data.revealedTiles);
+        setBombPositions(data.minesPositions);
         setIsActiveGame(false);
         
         if (isDev) {
