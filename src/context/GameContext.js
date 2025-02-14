@@ -35,6 +35,7 @@ export function GameProvider({ children }) {
         console.log(Boolean(response.data?.data.activeGame), response.data?.data.activeGame?.revealedTiles);
         if(Boolean(response.data.data.activeGame)){
           setRevealedCells(response.data.data.activeGame.revealedTiles);
+          setCurrentMultiplier(response.data.data.activeGame.currentMultiplier);
         }
 
         setBalance(Number(response.data.data.user.wallet.balance));
